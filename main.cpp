@@ -9,7 +9,7 @@ using namespace std;
 #define MAXCODELEN 1000 //代码最大长度
 typedef enum    //定义枚举类型
 {
-    START,INASSIGN,INCOMMENT,INCHAR,INID,INNUM,INRANGE,DONE
+    START,INASSIGN,INCOMMENT,INCHAR,INID,INNUM,INRANGE,DONE //开始状态、复制状态、注释状态、数字状态、标识符状态、字符标志状态、数组下标界限状态、完成状态
 }StateType;
 
 typedef enum
@@ -283,24 +283,24 @@ ChainNodeType *getTokenList(char *buf,int bufSize,int *tokennumber)
 
         while(state!=DONE)
         {
-            if(bufpos == bufSize)
+            if(bufpos == bufSize) //没有程序，行数为0
             {
                 currentToken.Lex = ERROR;
                 break;
             }
             char c;
-            c = tempchar = buf[bufpos++];
+            c = tempchar = buf[bufpos++];//下一行
             tokenpos++;
             switch (state)
             {
             case START:
             {
-                if (isdigit(c))
+                if (isdigit(c))//判断是否为数字
                 {
                     currentToken.val[tokenpos-1] = c;
                     state = INNUM;
                 }
-                else if (isalpha(c))
+                else if (isalpha(c))//是否为字母
                 {
                     state = INID;
                     currentToken.val[tokenpos-1] = c;
@@ -545,7 +545,7 @@ ChainNodeType *getTokenList(char *buf,int bufSize,int *tokennumber)
 int main()
 {
     ifstream ifile("SNL.txt");
-    char *SNLstr = new char[MAXCODELEN];
+    char *SNLstr = new char[MAXCODELEN];//读取文件并转换
     int i;
     for(i=0;!ifile.eof();i++)
     {
