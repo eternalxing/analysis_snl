@@ -6,7 +6,7 @@
 using namespace std;
 
 #define MAXTOKENLEN 30 //单词最大长度
-
+#define MAXCODELEN 1000 //代码最大长度
 typedef enum    //定义枚举类型
 {
     START,INASSIGN,INCOMMENT,INCHAR,INID,INNUM,INRANGE,DONE
@@ -262,8 +262,317 @@ LexicalType is_ID(const char *s){
     }
     return ID;
 }
+ChainNodeType *getTokenList(char *buf,int bufSize,int *tokennumber)
+{
+    int linenum = 1;
+    int tokennum = 0;
+    ChainNodeType *firstnode = new ChainNodeType;
+    firstnode->nextToken = NULL;
+    ChainNodeType *currentnode = firstnode;
+    ChainNodeType *prenode = firstnode;
+    TokenType currentToken;
+    int bufpos = 0;
+    int tokenpos = 0;
+    StateType state = START;
+    char tempchar;
+    while(true)
+    {
+        state = START;
+        tokenpos = 0;
+        currentToken.val[0] = '\0';
+
+        while(state!=DONE)
+        {
+            if(bufpos == bufSize)
+            {
+                currentToken.Lex = ERROR;
+                break;
+            }
+            char c;
+            c = tempchar = buf[bufpos++];
+            tokenpos++;
+            switch (state)
+            {
+            case START:
+            {
+                if (isdigit(c))
+                {
+                    currentToken.val[tokenpos-1] = c;
+                    state = INNUM;
+                }
+                else if (isalpha(c))
+                {
+                    state = INID;
+                    currentToken.val[tokenpos-1] = c;
+                }
+                else if (c == ':')
+                    state = INASSIGN;
+                else if (c == '.')
+                    state = INRANGE;
+                else if (c == '\'')
+                {
+                    currentToken.val[tokenpos-1] = c;
+                    state = INCHAR;
+                }
+                else if ((c == ' ') || (c == '\t') || (c == '\n'))
+                {
+                    tokenpos--;
+                    if(c=='\n')
+                        linenum++;
+                }
+                else if (c == '{')
+                {
+                    state = INCOMMENT;
+                }
+                else
+                 {
+                     state = DONE;
+                     switch (c)
+                     {
+                       case -1:
+                       {
+                           currentToken.Lex = END_OF_FILE;
+                           break;
+                       }
+                       case '=':
+                       {
+                           currentToken.Lex = EQ;
+                           break;
+                       }
+                       case '<':
+                       {
+                           currentToken.Lex = LT;
+                           break;
+                       }
+                       case '+':
+                       {
+                           currentToken.Lex = PLUS;
+                           break;
+                       }
+                       case '-':
+                       {
+                           currentToken.Lex = MINUS;
+                           break;
+                       }
+                       case '*':
+                       {
+                           currentToken.Lex = TIMES;
+                           break;
+                       }
+                       case '/':
+                       {
+                           currentToken.Lex = OVER;
+                           break;
+                       }
+                       case '(':
+                       {
+                           currentToken.Lex = LPAREN;
+                           break;
+                       }
+                       case ')':
+                       {
+                           currentToken.Lex = RPAREN;
+                           break;
+                       }
+                       case ';':
+                       {
+                           currentToken.Lex = SEMI;
+                           break;
+                       }
+                       case ',':
+                       {
+                           currentToken.Lex = COMMA;
+                           break;
+                       }
+                       case '[':
+                       {
+                           currentToken.Lex = LMIDPAREN;
+                           break;
+                       }
+                       case ']':
+                       {
+                           currentToken.Lex = RMIDPAREN;
+                           break;
+                       }
+                       default:
+                       {
+                            currentToken.Lex = ERROR;
+                           break;
+                       }
+                    }
+                }
+                break;
+            }
+            case INASSIGN:
+            {
+                state = DONE;
+                if (c == '=')
+                    currentToken.Lex = ASSIGN;
+                else
+                {
+                    bufpos--;
+                    currentToken.Lex = ERROR;
+                }
+                break;
+            }
+            case INRANGE:
+            {
+                state = DONE;
+                if (c == '.')
+                    currentToken.Lex = UNDERANGE;
+                else
+                {
+                    bufpos--;
+                    currentToken.Lex = DOT;
+                }
+                break;
+            }
+            case INCOMMENT:
+            {
+                if(c=='\n')
+                    linenum++;
+                if (c == '}')
+                {
+                    state = START;
+                    tokenpos = 0;
+                }
+                break;
+            }
+            case INNUM:
+            {
+                if (!isdigit(c))
+                {
+                    if(isalpha(c))
+                    {
+                        while(isalpha(buf[bufpos]))
+                            bufpos++;
+                        state = DONE;
+                        currentToken.Lex = ERROR;
+                    }
+                    else
+                    {
+                        bufpos--;
+                        state = DONE;
+                        currentToken.val[tokenpos-1]='\0';
+                        currentToken.Lex = INTC;
+                    }
+                }
+                else
+                    currentToken.val[tokenpos-1] = c;
+                break;
+            }
+            case INID:
+            {
+                if (!isalnum(c))
+                {
+                    bufpos--;
+                    state = DONE;
+                    currentToken.val[tokenpos-1]='\0';
+                    currentToken.Lex = is_ID(currentToken.val);
+                }
+                else
+                {
+                    currentToken.val[tokenpos-1] = c;
+                }
+                break;
+            }
+            case INCHAR:
+            {
+                if (isalnum(c))
+                {
+                    int c1=buf[bufpos++];
+                    if (c1 =='\'')
+                    {
+                        currentToken.val[0] = c;
+                        currentToken.val[1] = '\0';
+                        state = DONE;
+                        currentToken.Lex = CHARC;
+                    }
+                    else
+                    {
+                        bufpos-=2;
+                        state = DONE;
+                        currentToken.Lex = ERROR;
+                    }
+                }
+                else
+                {
+                    bufpos--;
+                    state = DONE;
+                    currentToken.Lex = ERROR;
+                }
+                break;
+            }
+            case DONE:
+            {
+                break;
+            }
+
+            default:
+            {
+                state = DONE;
+                currentToken.Lex = ERROR;
+                break;
+            }
+            }
+        }
+
+        currentToken.token_line = linenum;
+        (currentnode->Token).token_line=currentToken.token_line;
+        (currentnode->Token).Lex=currentToken.Lex;
+        strcpy((currentnode->Token).val,currentToken.val);
+
+        tokennum++;
+
+
+        if (prenode!=currentnode)
+        {
+            prenode->nextToken = currentnode;
+            prenode = currentnode;
+        }
+        else
+        {
+            prenode = currentnode;
+        }
+        currentnode = new ChainNodeType;
+        currentnode->nextToken=NULL;
+        if(currentToken.Lex==END_OF_FILE)
+            break;
+    }
+    *tokennumber = tokennum;
+    return firstnode;
+}
 int main()
 {
-    cout << "Hello world!" << endl;
-    return 0;
+    ifstream ifile("SNL.txt");
+    char *SNLstr = new char[MAXCODELEN];
+    int i;
+    for(i=0;!ifile.eof();i++)
+    {
+        SNLstr[i] = ifile.get();
+    }
+    SNLstr[i++] = '\0';
+    cout<<"*************************************************"<<endl;
+    cout<<"***********     Source   Program:     ***********"<<endl;
+    cout<<"*************************************************"<<endl;
+    cout<<SNLstr;
+    cout<<endl;
+
+    ChainNodeType *tokenlist;
+    int tokennum;
+    tokenlist = getTokenList(SNLstr,MAXCODELEN,&tokennum); //词法分析
+
+    ChainNodeType *templist;
+    cout<<"*************************************************"<<endl;
+    cout<<"*********    Lexical Aalysis Result:   **********"<<endl;
+    cout<<"*************************************************"<<endl;
+    cout<<"Line\tType"<<endl;
+    for(templist=tokenlist;templist!=NULL;templist = templist->nextToken)
+    {
+        show_token(&(templist->Token));  //输出词法分析结果
+        cout<<endl;
+        if(templist->nextToken!=NULL)
+            if(templist->Token.token_line!=templist->nextToken->Token.token_line)
+                cout<<endl;
+    }
 }
